@@ -1,68 +1,48 @@
 # HelpDesk
 
-HelpDesk is a MERN support workspace. Customers submit and track requests, support agents manage assigned tickets, and administrators oversee tickets, users, and analytics.
+HelpDesk is a college project for managing support tickets. Customers create tickets and follow replies. Administrators assign tickets to support agents. Agents reply and update ticket status.
 
-## Run locally in Windows PowerShell
+[Open the live HelpDesk site](https://help-desk-inky-rho.vercel.app/login)
 
-Requires Node.js 22.12+ or 24 and either Docker Desktop or a running MongoDB instance.
+## What runs where
 
-    cd "$env:USERPROFILE/Desktop/HelpDesk"
-    docker compose up -d
-    Copy-Item server/.env.example server/.env
-    node -p "require('node:crypto').randomBytes(32).toString('hex')"
-    notepad server/.env
-    npm.cmd --prefix server ci
-    npm.cmd --prefix client ci
-    npm.cmd --prefix server run dev
+| Service | What it does |
+|---|---|
+| Vercel | Hosts the React and Vite frontend that users open in their browser. |
+| Render | Runs the Node.js and Express API that handles accounts and tickets. |
+| MongoDB Atlas | Stores live accounts, tickets, comments, and attachments. |
+| Redis | Stores dashboard counts briefly so repeated requests can load from the cache. Render provides the managed cache. |
 
-Paste the generated value into JWT_SECRET in server/.env. If using Atlas or an existing MongoDB installation, set MONGODB_URI to that database and start only the Redis Compose service if needed.
+A live admin stats request returned `x-cache: hit`, confirming Redis served the result. HelpDesk can still load dashboard data from MongoDB when Redis is unavailable.
 
-In a second PowerShell window:
+## Password reset email
 
-    cd "$env:USERPROFILE/Desktop/HelpDesk"
-    npm.cmd --prefix client run dev
+HelpDesk uses Nodemailer to send a one-time code. The code expires after 10 minutes. Local SMTP delivery passed integration tests. Live email delivery still needs working SMTP settings on the Render API.
 
-Open http://localhost:5173 and register a customer. The readiness endpoint is http://localhost:5000/api/health.
+## Run locally
 
-### Initial administrator
+Install Node.js and start MongoDB and Redis. The included Compose file can start both with `docker compose up -d`. Copy `server/.env.example` to `server/.env` and set the database URL and a strong JWT secret.
 
-Set temporary environment values ADMIN_EMAIL and ADMIN_PASSWORD before running npm.cmd --prefix server run seed. The password must have at least 12 characters and fit in 72 UTF-8 bytes. Remove the variables after the seed succeeds. Select **Manage users** as an admin to promote an active customer to an agent. Assign tickets in the ticket details view.
+Run these commands from the project folder:
 
-## Architecture and design choices
+    npm --prefix server ci
+    npm --prefix client ci
 
-- client/src holds the React routes, role-aware dashboard, plain CSS, authentication context, and the Axios service. Recharts renders support analytics.
-- server/app.js registers the Express routes and shared middleware. server/models.js defines users, tickets, comments, and activity with indexes and ObjectId references. A ticket references its creator and assigned agent. Comments and activity reference both the ticket and the user responsible for the entry.
-- Every protected request verifies the JWT and looks up an active user in MongoDB. Tickets use a database filter derived from the authenticated user. Registration ignores role fields.
-- Axios keeps the one-hour JWT in memory. A reload clears the session and requires sign-in. Nothing is persisted in browser storage. Use HTTPS in production. Sign-out clears the browser token. A copied token remains usable until expiration or account deactivation.
-- Multer accepts up to three PNG, JPEG, or PDF files of 4 MB each. It checks MIME and signature and serves downloads through authorized ticket routes. Attachments live in their parent ticket or comment document, so Atlas provides durable storage. This fixed limit keeps a single upload under MongoDB's document size limit.
-- Redis caches admin and per-agent aggregates for 60 seconds. Ticket and role mutations rotate a cache revision. When Redis is unavailable, requests query MongoDB. Following a Redis outage, previously cached values can remain visible for the remainder of their TTL.
-- Nodemailer sends best-effort plain-text notifications with SMTP_URL and MAIL_FROM. Notifications have no durable retry queue.
-- Ticket activity, comment cleanup, and ticket writes span multiple MongoDB documents. The local standalone setup does not use multi-document transactions, so a database failure can leave a partially applied operation.
+Start the API and frontend in separate terminals:
 
-## Testing
+    npm --prefix server run dev
+    npm --prefix client run dev
 
-    npm.cmd --prefix client run build
-    npm.cmd --prefix server test
+Open http://localhost:5173. Run the API integration suite with `npm --prefix server test`. To include live cache checks, set `TEST_REDIS_URL` to a disposable Redis instance. See [API and Postman testing](API.md).
 
-The API suite starts an isolated MongoDB instance. It can use an existing mongod binary if you set MONGOMS_SYSTEM_BINARY first. Otherwise it downloads the binary. Set TEST_REDIS_URL to a disposable Redis instance to exercise Redis hits and invalidation. See [API and Postman testing](API.md).
+## Deploy
 
-## Deployment
+1. Import the repository into Render as a Blueprint. The root `render.yaml` defines the API and Redis cache. Set `MONGODB_URI` to your Atlas connection string and `CLIENT_ORIGINS` to your Vercel site URL. The Blueprint sets `REDIS_URL`.
+2. Allow the Render service's outbound IP ranges in Atlas. Check [API health](https://helpdesk-api-44ip.onrender.com/api/health) for a ready database.
+3. Import the `client` directory into Vercel as a Vite project. Set `VITE_API_URL` to `https://helpdesk-api-44ip.onrender.com/api` and redeploy.
+4. To enable email, configure `SMTP_URL` and `MAIL_FROM` on Render. Store credentials in environment settings. Keep local `.env` files out of Git.
 
-1. Push the repository to GitHub with the lockfiles and environment examples.
-2. Create a Render Node web service with root directory server, build command npm ci, start command npm start, and health check /api/health. Set NODE_ENV=production, NODE_VERSION=24, TRUST_PROXY to the appropriate proxy hop count, MONGODB_URI, JWT_SECRET, REDIS_URL, SMTP_URL, and MAIL_FROM. Use a TLS Redis URL if your provider requires one.
-3. Use MongoDB Atlas with a dedicated database user and authorize the Render service to connect. The administrator seed can run with temporary credentials from a trusted machine that can reach Atlas.
-4. Import the GitHub repository into Vercel, select the client directory and Vite preset, and set VITE_API_URL to the Render HTTPS origin followed by /api. The Vercel rewrite serves React Router deep links. Set CLIENT_ORIGINS on Render to the exact Vercel origin.
-5. Verify health, login, an authorized download, dashboard cache headers, and an SMTP notification before using real customer data.
-
-[Render Express deployment](https://render.com/docs/deploy-node-express-app) · [Vercel Vite deployment](https://vercel.com/docs/frameworks/frontend/vite)
-
-## Screenshots
-
-Portfolio screenshots can be captured from the dashboard, ticket conversation, and admin analytics after running the project with sample support tickets.
+[Render Blueprint guide](https://render.com/docs/blueprints) · [Vercel Vite guide](https://vercel.com/docs/frameworks/frontend/vite)
 
 
-Administrator registration can also be enabled by setting ADMIN_SIGNUP_CODE to a random setup code in server/.env. Select Administrator when registering and enter that code. Share it only with trusted administrators. Remove it and restart the API to disable administrator registration. The admin queue groups open and in-progress tickets under Pending and resolved tickets under Done.
-
-### Deploy Redis with the API
-
-Connect the repository as a Render Blueprint using render.yaml. The Blueprint creates the API and a private, same-region Render Key Value instance and injects its connection string as REDIS_URL. Supply Atlas MONGODB_URI and the exact Vercel CLIENT_ORIGINS during setup. Set VITE_API_URL on Vercel to the Render API URL ending in /api. Configure SMTP_URL and MAIL_FROM separately if needed. After deployment, make two authenticated GET requests to /api/admin/stats and inspect X-Cache for miss then hit. Update a test ticket and check for a miss with refreshed counts.
+9XacJW5YuWgR2da1_-sths-P
