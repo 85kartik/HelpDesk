@@ -19,22 +19,6 @@ A live admin stats request returned `x-cache: hit`, confirming Redis served the 
 
 HelpDesk uses Nodemailer to send a one-time code. The code expires after 10 minutes. Local SMTP delivery passed integration tests. Live email delivery still needs working SMTP settings on the Render API.
 
-## Run locally
-
-Install Node.js and start MongoDB and Redis. The included Compose file can start both with `docker compose up -d`. Copy `server/.env.example` to `server/.env` and set the database URL and a strong JWT secret.
-
-Run these commands from the project folder:
-
-    npm --prefix server ci
-    npm --prefix client ci
-
-Start the API and frontend in separate terminals:
-
-    npm --prefix server run dev
-    npm --prefix client run dev
-
-Open http://localhost:5173. Run the API integration suite with `npm --prefix server test`. To include live cache checks, set `TEST_REDIS_URL` to a disposable Redis instance. See [API and Postman testing](API.md).
-
 ## Deploy
 
 1. Import the repository into Render as a Blueprint. The root `render.yaml` defines the API and Redis cache. Set `MONGODB_URI` to your Atlas connection string and `CLIENT_ORIGINS` to your Vercel site URL. The Blueprint sets `REDIS_URL`.
