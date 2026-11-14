@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: helpdesk-api
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: server
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: CLIENT_ORIGINS
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: helpdesk-cache
+          property: connectionString
+  - type: keyvalue
+    name: helpdesk-cache
+    region: oregon
+    plan: free
+    ipAllowList: []
+    persistenceMode: off
+    maxmemoryPolicy: allkeys-lru

@@ -1,0 +1,27 @@
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const mongoose = require('mongoose');
+const { auth } = require('./auth');
+const { tickets } = require('./tickets');
+const { admin,dashboard } = require('./dashboard');
+const { send, fail, errorHandler } = require('./http');
+const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy',Number(process.env.TRUST_PROXY || 0));
+const origins = (process.env.CLIENT_ORIGINS || 'http://localhost:5173').split(',').map(value => value.trim());
+app.use(helmet());
+app.use(cors({ origin: (origin,callback) => callback(null,Boolean(origin && origins.includes(origin))) }));
+app.use('/api', (req,res,next) => { res.set('Cache-Control','no-store'); next(); });
+app.use(express.json({ limit: '32kb' }));
+app.get('/api/health',(req,res) => {
+  if (mongoose.connection.readyState !== 1) fail(503,'Database unavailable');
+  send(res,{ database: 'ready' });
+});
+app.use('/api/auth',auth);
+app.use('/api/tickets',tickets);
+app.use('/api/admin',admin);
+app.use('/api/dashboard',dashboard);
+app.use((req,res) => fail(404,'Route not found'));
+app.use(errorHandler);
+module.exports = app;

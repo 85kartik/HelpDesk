@@ -1,0 +1,19 @@
+{
+  "name": "helpdesk-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "vite": "^7",
+    "react": "^19",
+    "react-dom": "^19",
+    "react-router-dom": "^7",
+    "axios": "^1",
+    "lucide-react": "^0.577",
+    "recharts": "^3",
+    "react-toastify": "^11"
+  }
+}
