@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes, NavLink, Link, Navigate, Outlet, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { LifeBuoy, LayoutDashboard, Ticket, Users, UserRound, ChartColumn, Plus, ArrowUpRight, LogOut, Menu, Paperclip, Search, Clock3, CircleCheck, CircleDot } from 'lucide-react';
+import { LifeBuoy, LayoutDashboard, Ticket, Users, UserRound, ChartColumn, Plus, ArrowUpRight, LogOut, Menu, Paperclip, Search, Clock3, CircleCheck, CircleDot, Eye, EyeOff } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -42,6 +42,21 @@ function Header({ title, description, children }) {
   return <div className="page-head"><div><h1>{title}</h1><p>{description}</p></div>{children}</div>;
 }
 function Brand() { return <div className="brand"><span><LifeBuoy size={21}/></span>HelpDesk</div>; }
+function PasswordField({ label, name, hint, ...inputProps }) {
+  const [visible, setVisible] = useState(false);
+  const ToggleIcon = visible ? EyeOff : Eye;
+  const hintId = hint ? name + '-hint' : undefined;
+  return <div className="password-field">
+    <label htmlFor={name}>{label}</label>
+    <div className="password-input">
+      <input id={name} name={name} type={visible ? 'text' : 'password'} aria-describedby={hintId} {...inputProps}/>
+      <button type="button" aria-label={(visible ? 'Hide ' : 'Show ') + label.toLowerCase()} onClick={() => setVisible(value => !value)}>
+        <ToggleIcon size={19} aria-hidden="true"/>
+      </button>
+    </div>
+    {hint && <small id={hintId}>{hint}</small>}
+  </div>;
+}
 function AuthPage({ mode }) {
   const { user,login } = useAuth();
   const [busy,setBusy] = useState(false);
@@ -58,7 +73,7 @@ function AuthPage({ mode }) {
     catch (error) { setError(errorMessage(error)); }
     finally { setBusy(false); }
   }
-  return <main className="auth"><section className="auth-story"><Brand/><div><LifeBuoy size={82} strokeWidth={1}/><h1>Support starts here.</h1><p>Open tickets, follow updates, and keep every conversation in one place.</p></div></section><section className="auth-form"><form className="stack" onSubmit={submit}><h1>{register ? 'Create your account' : 'Welcome back'}</h1><p>{register ? 'Register to open and track support tickets.' : 'Sign in to your support workspace.'}</p>{register && <label>Name<input name="name" maxLength={100} autoComplete="name" required/></label>}{register && <label>Account type<select name="accountType" value={accountType} onChange={event => setAccountType(event.target.value)}><option value="customer">Customer</option><option value="admin">Administrator</option></select></label>}{register && accountType === 'admin' && <label>Administrator setup code<input name="setupCode" type="password" autoComplete="off" required/></label>}<label>Email address<input type="email" name="email" autoComplete="email" required/></label><label>Password<input type="password" name="password" minLength={register ? 12 : undefined} maxLength={72} autoComplete={register ? 'new-password' : 'current-password'} required/></label>{!register && <Link to="/forgot-password">Forgot password?</Link>}{error && <p className="error" role="alert">{error}</p>}<button className="primary" disabled={busy}>{busy ? 'Please wait…' : register ? 'Create account' : 'Sign in'}</button><p>{register ? 'Already registered?' : 'New to HelpDesk?'} <Link to={register ? '/login' : '/register'}>{register ? 'Sign in' : 'Create an account'}</Link></p></form></section></main>;
+  return <main className="auth"><section className="auth-story"><Brand/><div><LifeBuoy size={82} strokeWidth={1}/><h1>Support starts here.</h1><p>Open tickets, follow updates, and keep every conversation in one place.</p></div></section><section className="auth-form"><form className="stack" onSubmit={submit}><h1>{register ? 'Create your account' : 'Welcome back'}</h1><p>{register ? 'Register to open and track support tickets.' : 'Sign in to your support workspace.'}</p>{register && <label>Name<input name="name" maxLength={100} autoComplete="name" required/></label>}{register && <label>Account type<select name="accountType" value={accountType} onChange={event => setAccountType(event.target.value)}><option value="customer">Customer</option><option value="admin">Administrator</option></select></label>}{register && accountType === 'admin' && <label>Administrator setup code<input name="setupCode" type="password" autoComplete="off" required/></label>}<label>Email address<input type="email" name="email" autoComplete="email" required/></label><PasswordField label="Password" name="password" minLength={register ? 12 : undefined} maxLength={72} autoComplete={register ? 'new-password' : 'current-password'} required/>{!register && <Link to="/forgot-password">Forgot password?</Link>}{error && <p className="error" role="alert">{error}</p>}<button className="primary" disabled={busy}>{busy ? 'Please wait…' : register ? 'Create account' : 'Sign in'}</button><p>{register ? 'Already registered?' : 'New to HelpDesk?'} <Link to={register ? '/login' : '/register'}>{register ? 'Sign in' : 'Create an account'}</Link></p></form></section></main>;
 }
 function PasswordRecovery() {
   const [email,setEmail] = useState('');
@@ -91,7 +106,7 @@ function PasswordRecovery() {
   </form></main>;
 }
 function NewPassword() {
-  return <label>New password<input type="password" name="newPassword" autoComplete="new-password" minLength={12} maxLength={72} required/><small>Use at least 12 characters.</small></label>;
+  return <PasswordField label="New password" name="newPassword" autoComplete="new-password" minLength={12} maxLength={72} hint="Use at least 12 characters." required/>;
 }
 function ChangePassword() {
   const { logout } = useAuth();
@@ -104,7 +119,7 @@ function ChangePassword() {
     catch (error) { toast.error(errorMessage(error)); }
     finally { setBusy(false); }
   }
-  return <form className="panel padded stack form-width" onSubmit={submit}><h2>Change password</h2><label>Current password<input name="currentPassword" type="password" autoComplete="current-password" required/></label><NewPassword/><button className="primary" disabled={busy}>Change password</button></form>;
+  return <form className="panel padded stack form-width" onSubmit={submit}><h2>Change password</h2><PasswordField label="Current password" name="currentPassword" autoComplete="current-password" required/><NewPassword/><button className="primary" disabled={busy}>Change password</button></form>;
 }
 function Shell() {
   const { user,logout } = useAuth();
@@ -112,12 +127,12 @@ function Shell() {
   if (!user) return <Navigate to="/login" replace/>;
   const links = [['/','Overview',LayoutDashboard],['/tickets',listTitles[user.role],Ticket],['/profile','Profile',UserRound]];
   if (user.role === 'admin') links.splice(2,0,['/users','Manage users',Users],['/agents','Manage agents',Users],['/analytics','Analytics',ChartColumn]);
-  return <div className="shell"><aside className={open ? 'sidebar open' : 'sidebar'}><Brand/><nav aria-label="Workspace">{links.map(([url,title,Icon]) => <NavLink end to={url} key={url} onClick={() => setOpen(false)}><Icon size={18}/>{title}</NavLink>)}</nav><button className="logout" onClick={logout}><LogOut size={17}/> Sign out</button></aside><div className="workspace"><header className="top"><button className="menu" type="button" aria-label="Toggle navigation" aria-expanded={open} onClick={() => setOpen(!open)}><Menu size={20}/></button><span>Support workspace</span><Link to="/profile" className="identity"><span className="avatar">{user.name.slice(0,1).toUpperCase()}</span><span>{user.name}<small>{titles[user.role]}</small></span></Link></header><main className="content"><Outlet/></main></div></div>;
+  return <div className="shell"><a className="skip-link" href="#workspace-content">Skip to content</a>{open && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setOpen(false)}/>}<aside id="workspace-sidebar" className={open ? 'sidebar open' : 'sidebar'}><Brand/><nav aria-label="Workspace">{links.map(([url,title,Icon]) => <NavLink end to={url} key={url} onClick={() => setOpen(false)}><Icon size={18}/>{title}</NavLink>)}</nav><button className="logout" onClick={logout}><LogOut size={17}/> Sign out</button></aside><div className="workspace"><header className="top"><button className="menu" type="button" aria-label="Toggle navigation" aria-controls="workspace-sidebar" aria-expanded={open} onClick={() => setOpen(!open)}><Menu size={20}/></button><span>Support workspace</span><Link to="/profile" className="identity"><span className="avatar">{user.name.slice(0,1).toUpperCase()}</span><span>{user.name}<small>{titles[user.role]}</small></span></Link></header><main className="content" id="workspace-content" tabIndex={-1}><Outlet/></main></div></div>;
 }
 function Badge({ value }) { return <span className={'badge '+value}>{label(value)}</span>; }
 function TicketTable({ items }) {
   if (!items.length) return <div className="notice">No tickets to show.</div>;
-  return <div className="table-wrap"><table><thead><tr><th>Ticket</th><th>Status</th><th>Priority</th><th>Created</th><th><span className="sr-only">Open ticket</span></th></tr></thead><tbody>{items.map(ticket => <tr key={ticket._id}><td><Link className="ticket-title" to={'/tickets/'+ticket._id}>{ticket.title}</Link><small>{label(ticket.category)}</small></td><td><Badge value={ticket.status}/></td><td><Badge value={ticket.priority}/></td><td>{date(ticket.createdAt)}</td><td><Link aria-label={'Open '+ticket.title} to={'/tickets/'+ticket._id}><ArrowUpRight size={16}/></Link></td></tr>)}</tbody></table></div>;
+  return <div className="table-wrap ticket-table"><table><thead><tr><th>Ticket</th><th>Status</th><th>Priority</th><th>Created</th><th><span className="sr-only">Open ticket</span></th></tr></thead><tbody>{items.map(ticket => <tr key={ticket._id}><td><Link className="ticket-title" to={'/tickets/'+ticket._id}>{ticket.title}</Link><small>{label(ticket.category)}</small></td><td className="ticket-status"><Badge value={ticket.status}/></td><td className="ticket-priority"><Badge value={ticket.priority}/></td><td className="ticket-date">{date(ticket.createdAt)}</td><td><Link aria-label={'Open '+ticket.title} to={'/tickets/'+ticket._id}><ArrowUpRight size={16}/></Link></td></tr>)}</tbody></table></div>;
 }
 function Charts({ data }) {
   return <div className="charts">{[['status',statuses],['priority',priorities],['category',categories]].map(([group,values]) => <section className="panel chart" key={group}><h2>Tickets by {group}</h2><ResponsiveContainer width="100%" height={190}><BarChart data={values.map(value => ({ name:label(value), count:data[group].find(row => row._id === value)?.count || 0 }))}><XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={12}/><YAxis allowDecimals={false} width={28} tickLine={false} axisLine={false}/><Tooltip/><Bar name="Tickets" dataKey="count" fill="#5850d8" radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></section>)}</div>;
@@ -247,6 +262,6 @@ function Profile() {
 }
 function Gate({ role, children }) { return useAuth().user?.role===role ? children : <Navigate to="/" replace/>; }
 function App() {
-  return <BrowserRouter><AuthProvider><Routes><Route path="/login" element={<AuthPage key="login" mode="login"/>}/><Route path="/forgot-password" element={<PasswordRecovery/>}/><Route path="/register" element={<AuthPage key="register" mode="register"/>}/><Route element={<Shell/>}><Route index element={<Dashboard/>}/><Route path="tickets" element={<TicketList/>}/><Route path="tickets/new" element={<Gate role="customer"><TicketCreate/></Gate>}/><Route path="tickets/:id" element={<TicketDetails/>}/><Route path="users" element={<Gate role="admin"><Directory key="users"/></Gate>}/><Route path="agents" element={<Gate role="admin"><Directory key="agents" agents/></Gate>}/><Route path="analytics" element={<Gate role="admin"><Dashboard analytics/></Gate>}/><Route path="profile" element={<Profile/>}/></Route><Route path="*" element={<main className="notice"><h1>Page not found</h1><Link to="/">Back to HelpDesk</Link></main>}/></Routes><ToastContainer position="bottom-right" theme="light"/></AuthProvider></BrowserRouter>;
+  return <BrowserRouter><AuthProvider><Routes><Route path="/login" element={<AuthPage key="login" mode="login"/>}/><Route path="/forgot-password" element={<PasswordRecovery/>}/><Route path="/register" element={<AuthPage key="register" mode="register"/>}/><Route element={<Shell/>}><Route index element={<Dashboard/>}/><Route path="tickets" element={<TicketList/>}/><Route path="tickets/new" element={<Gate role="customer"><TicketCreate/></Gate>}/><Route path="tickets/:id" element={<TicketDetails/>}/><Route path="users" element={<Gate role="admin"><Directory key="users"/></Gate>}/><Route path="agents" element={<Gate role="admin"><Directory key="agents" agents/></Gate>}/><Route path="analytics" element={<Gate role="admin"><Dashboard analytics/></Gate>}/><Route path="profile" element={<Profile/>}/></Route><Route path="*" element={<main className="auth-form"><section className="panel padded stack"><Brand/><h1>Page not found</h1><Link className="primary" to="/">Back to HelpDesk</Link></section></main>}/></Routes><ToastContainer position="bottom-right" theme="light"/></AuthProvider></BrowserRouter>;
 }
 createRoot(document.getElementById('root')).render(<App/>);
