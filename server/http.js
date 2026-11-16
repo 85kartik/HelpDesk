@@ -20,7 +20,7 @@ function errorHandler(error, req, res, next) {
   if (res.headersSent) return next(error);
   let status = error.status || 500;
   let message = error.message;
-  if (error.code === 11000) { status = 409; message = 'That record already exists'; }
+  if (error.code === 11000) { status = 409; message = error.keyPattern?.email ? 'An account already exists with this email. Sign in or reset your password.' : 'That record already exists'; }
   if (error.name === 'ValidationError') { status = 400; message = 'Invalid data'; }
   if (error.name === 'VersionError') { status = 409; message = 'The ticket changed. Refresh and try again.'; }
   if (error.name === 'MulterError') { status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400; message = 'Upload exceeds the allowed limits'; }

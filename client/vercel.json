@@ -1,1 +1,11 @@
-{"rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "help-desk-kk-26c1.vercel.app" }],
+      "destination": "https://help-desk-inky-rho.vercel.app/:path*",
+      "permanent": false
+    }
+  ],
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}

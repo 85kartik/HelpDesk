@@ -14,7 +14,7 @@ function emailAddress(value) {
   return email;
 }
 function password(value, min = 12) {
-  if (typeof value !== 'string' || value.length < min || Buffer.byteLength(value) > 72) fail(400, 'Invalid password length');
+  if (typeof value !== 'string' || value.length < min || Buffer.byteLength(value) > 72) fail(400, min === 1 ? 'Enter a password of up to 72 bytes' : 'Use a password with at least 12 characters and at most 72 bytes');
   return value;
 }
 function session(res, user, status) {
@@ -55,7 +55,7 @@ auth.post('/login', limiter, async (req,res) => {
   const { email, password: input } = req.body || {};
   const candidate = password(input,1);
   const user = await User.findOne({ email: emailAddress(email), isActive: true }).select('+password');
-  if (!(await bcrypt.compare(candidate,user?.password || dummy)) || !user) fail(401,'Invalid email or password');
+  if (!(await bcrypt.compare(candidate,user?.password || dummy)) || !user) fail(401,'Email or password is incorrect. Check both and try again.');
   session(res,user,200);
 });
 auth.get('/profile', authenticate, (req,res) => send(res,publicUser(req.user)));
