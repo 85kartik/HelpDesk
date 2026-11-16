@@ -17,6 +17,6 @@ export function AuthProvider({ children }) {
     setToken(data.token);
     setUser(data.user);
   }
-  return <Auth.Provider value={{ user,login,logout }}>{children}</Auth.Provider>;
+  return <Auth.Provider value={{ user,login,logout,updateUser:setUser }}>{children}</Auth.Provider>;
 }
 export const useAuth = () => useContext(Auth);

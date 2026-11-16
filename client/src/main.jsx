@@ -257,8 +257,48 @@ function Directory({ agents }) {
   return <><Header title={agents?'Manage agents':'Manage users'} description={agents?'View active support agents.':'Review accounts and promote customers to support agents.'}/><Present state={data}>{result => <section className="panel"><div className="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr></thead><tbody>{result.items.map(user => <tr key={user._id}><td>{user.name}</td><td>{user.email}</td><td>{titles[user.role]}</td><td>{user.role==='customer' && user.isActive && <button disabled={busy} onClick={() => { if (window.confirm('Promote '+user.name+' to support agent?')) promote(user._id); }}>Promote to agent</button>}</td></tr>)}</tbody></table></div>{!result.items.length && <div className="notice">No accounts to show.</div>}<Pagination data={result} change={setPage}/></section>}</Present></>;
 }
 function Profile() {
-  const data=useData('/auth/profile');
-  return <><Header title="Profile" description="Your name, email, and workspace access."/><Present state={data}>{user => <section className="panel padded form-width"><dl><dt>Name</dt><dd>{user.name}</dd><dt>Email</dt><dd>{user.email}</dd><dt>Role</dt><dd>{titles[user.role]}</dd></dl></section>}</Present><ChangePassword/></>;
+  const { user, updateUser, logout } = useAuth();
+  const [promote,setPromote] = useState(false);
+  const [deleting,setDeleting] = useState(false);
+  const [busy,setBusy] = useState(false);
+  async function submit(event, remove = false) {
+    event.preventDefault();
+    const values = formValues(event);
+    if (remove && !window.confirm('Permanently delete your HelpDesk account?')) return;
+    setBusy(true);
+    try {
+      if (remove) {
+        await api.delete('/auth/profile',{ data:{ currentPassword:values.deletePassword } });
+        logout();
+        toast.success('Account deleted.');
+      } else {
+        if (promote) values.role = 'admin';
+        const response = await api.patch('/auth/profile',values);
+        updateUser(response.data.data);
+        setPromote(false);
+        toast.success('Profile updated.');
+      }
+    } catch (error) { toast.error(errorMessage(error)); }
+    finally { setBusy(false); }
+  }
+  return <><Header title="Profile" description="Manage your account details and password."/>
+    <form className="panel padded stack form-width" onSubmit={submit}>
+      <label>Name<input name="name" autoComplete="name" defaultValue={user.name} maxLength={100} required/></label>
+      <label>Email address<input type="email" value={user.email} readOnly/></label>
+      <label>Role<input value={titles[user.role]} readOnly/></label>
+      {user.role !== 'admin' && <button type="button" aria-expanded={promote} onClick={() => setPromote(value => !value)}>{promote ? 'Cancel role change' : 'Become an administrator'}</button>}
+      {promote && <><PasswordField label="Administrator setup code" name="setupCode" autoComplete="off" required/><PasswordField label="Current password" name="currentPassword" autoComplete="current-password" required/></>}
+      <button className="primary" disabled={busy}>Save profile</button>
+    </form>
+    <ChangePassword/>
+    <section className="panel padded stack form-width">
+      <h2>Delete account</h2><p>Your account will be permanently removed. Ticket and conversation history will remain.</p>
+      {deleting ? <form className="stack" onSubmit={event => submit(event,true)}>
+        <PasswordField label="Confirm current password" name="deletePassword" autoComplete="current-password" required/>
+        <button className="danger" disabled={busy}>Permanently delete account</button>
+        <button type="button" disabled={busy} onClick={() => setDeleting(false)}>Cancel</button>
+      </form> : <button className="danger" type="button" onClick={() => setDeleting(true)}>Delete account</button>}
+    </section></>;
 }
 function Gate({ role, children }) { return useAuth().user?.role===role ? children : <Navigate to="/" replace/>; }
 function App() {

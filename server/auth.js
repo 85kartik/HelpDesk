@@ -39,12 +39,7 @@ auth.post('/register', limiter, async (req,res) => {
   const { name, email, password: input } = req.body || {};
   let role = 'customer';
   if (req.body?.accountType === 'admin') {
-    const expected = process.env.ADMIN_SIGNUP_CODE;
-    const supplied = req.body.setupCode;
-    const digest = value => createHash('sha256').update(value).digest();
-    if (!expected || typeof supplied !== 'string' || !timingSafeEqual(digest(expected),digest(supplied))) {
-      fail(403, 'Administrator setup code is invalid or registration is disabled');
-    }
+    requireAdminCode(req.body.setupCode);
     role = 'admin';
   }
   const user = await User.create({ name: field(name, 'Name', 100), email: emailAddress(email), password: await bcrypt.hash(password(input),12), role });
@@ -58,7 +53,41 @@ auth.post('/login', limiter, async (req,res) => {
   if (!(await bcrypt.compare(candidate,user?.password || dummy)) || !user) fail(401,'Email or password is incorrect. Check both and try again.');
   session(res,user,200);
 });
+function requireAdminCode(supplied) {
+  const expected = process.env.ADMIN_SIGNUP_CODE;
+  const digest = value => createHash('sha256').update(value).digest();
+  if (!expected || typeof supplied !== 'string' || !timingSafeEqual(digest(expected),digest(supplied))) {
+    fail(403, 'Administrator setup code is invalid or registration is disabled');
+  }
+}
 auth.get('/profile', authenticate, (req,res) => send(res,publicUser(req.user)));
+auth.patch('/profile', authenticate, limiter, async (req,res) => {
+  const { name, role, setupCode, email, currentPassword } = req.body ?? {};
+  if (email !== undefined) fail(400,'Email address cannot be changed');
+  const updates = { name: field(name,'Name',100) };
+  const filter = { _id: req.user._id, isActive: true, role: req.user.role };
+  if (role !== undefined && role !== req.user.role) {
+    if (role !== 'admin') fail(403,'This role change is unavailable');
+    requireAdminCode(setupCode);
+    const account = await User.findOne(filter).select('+password');
+    if (!account || !(await bcrypt.compare(password(currentPassword,1),account.password))) fail(400,'Current password is incorrect');
+    filter.password = account.password;
+    updates.role = 'admin';
+  }
+  const user = await User.findOneAndUpdate(filter,{ $set: updates },{ returnDocument:'after' });
+  if (!user) fail(409,'Account changed. Refresh your profile and try again.');
+  await require('./services').invalidate();
+  send(res,publicUser(user));
+});
+auth.delete('/profile', authenticate, limiter, async (req,res) => {
+  const current = password(req.body?.currentPassword,1);
+  const user = await User.findOne({ _id: req.user._id, isActive: true }).select('+password');
+  if (!user || !(await bcrypt.compare(current,user.password))) fail(400,'Current password is incorrect');
+  const result = await User.deleteOne({ _id: user._id, password: user.password, isActive: true });
+  if (!result.deletedCount) fail(409,'Account changed. Try again.');
+  await require('./services').invalidate();
+  send(res,{});
+});
 const recoveryLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, message: { success: false, message: 'Too many password recovery requests' } });
 const resetDigest = (nonce, code) => createHmac('sha256', process.env.JWT_SECRET).update(nonce + ':' + code).digest('hex');
 auth.post('/forgot-password', recoveryLimiter, async (req,res) => {

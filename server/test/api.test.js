@@ -200,3 +200,24 @@ test('password change and emailed one-time reset invalidate previous sessions', 
   await request('/auth/login',401,{ method:'POST',body:{ email,password:changed } });
   await request('/auth/login',200,{ method:'POST',body:{ email,password:replacement } });
 });
+
+test('profile updates, gated promotion, and permanent account deletion', async () => {
+  const { data:account } = await register('profile');
+  const auth = account.token;
+  const patch = body => ({ method:'PATCH', auth, body });
+  const remove = currentPassword => ({ method:'DELETE', auth, body:{ currentPassword } });
+  const name = 'Updated name';
+  const updated = await request('/auth/profile',200,patch({ name }));
+  assert.equal(updated.data.name,name);
+  assert.equal(updated.data.email,account.user.email);
+  await request('/auth/profile',400,patch({ name,email:'other@example.test' }));
+  await request('/auth/profile',403,patch({ name,role:'admin',setupCode:'wrong' }));
+  const promoted = await request('/auth/profile',200,patch({
+    name,role:'admin',setupCode:process.env.ADMIN_SIGNUP_CODE,currentPassword:'strong test password'
+  }));
+  assert.equal(promoted.data.role,'admin');
+  await request('/auth/profile',400,remove('wrong'));
+  await request('/auth/profile',200,remove('strong test password'));
+  assert.equal(await User.exists({ _id:account.user._id }),null);
+  await request('/auth/profile',401,{ auth });
+});
